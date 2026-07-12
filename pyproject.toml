@@ -1,0 +1,12 @@
+[tool.poetry]
+name = "CallMeMaybe"
+version = "1.0.0"
+description = "LLM for 42 curriculum"
+author = "rafhovha"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = 
+
+[tool.poetry.group.dev.dependencies]
