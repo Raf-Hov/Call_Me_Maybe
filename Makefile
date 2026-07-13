@@ -1,9 +1,9 @@
-PYTHON = py
+PYTHON = poetry run python3
 
 MAIN = main.py
 
 
-all: run
+all: install run
 
 install:
 	py -m poetry install
@@ -24,6 +24,5 @@ lint:
 lint-strict:
 	py -m flake8 .
 	py -m mypy  --strict .
-
 
 .PHONY: install run debug clean lint lint-strict all

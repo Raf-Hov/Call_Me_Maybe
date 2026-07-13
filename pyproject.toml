@@ -2,11 +2,18 @@
 name = "CallMeMaybe"
 version = "1.0.0"
 description = "LLM for 42 curriculum"
-author = "rafhovha"
-readme = "README.md"
+authors = ["rafhovha"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pydantic = 
+pydantic = "^2.13.4"
+numpy = "^2.2.6"
 
 [tool.poetry.group.dev.dependencies]
+flake8 = "^6.0.0"
+mypy = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
