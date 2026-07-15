@@ -1,20 +1,25 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Any
 
+__all__ = ["ParametModel",
+           "ReturnModel",
+           "FunctionDefinition",
+           "FunctionCallOutput"]
+
 
 class ParametModel(BaseModel):
-    typ: Optional[str]
+    type: Optional[str]
 
 
 class ReturnModel(BaseModel):
-    typ: Optional[str]
+    type: Optional[str]
 
 
 class FunctionDefinition(BaseModel):
     name: str
-    descrit: str
+    description: str
     parameters: dict[str, ParametModel]
-    retur: ReturnModel
+    returns: ReturnModel
 
 
 class FunctionCallOutput(BaseModel):
