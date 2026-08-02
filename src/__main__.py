@@ -1,6 +1,11 @@
-from src.tokenizator import Tokenizator
+from typing import Any
+import string
+from .esiminch import ParsePyd
 
 
-if __name__ == "__main__":
-    tok = Tokenizator()
-    tok.tokeniz()
+def main() -> None:
+    print("aaa")
+    tok = ParsePyd()
+
+
+main()
