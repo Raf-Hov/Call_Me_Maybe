@@ -16,17 +16,17 @@ class Tokenizer(ArgPars):
         self.model = Small_LLM_Model()
         vocab: dict[str, int] = self.load_json_file(
             self.model.get_path_to_vocab_file())
-        vocab_dict: dict[int, str] = {
+        self.vocab_dict: dict[int, str] = {
                 v: k.replace('Ġ', ' ') for k, v in vocab.items()}
         set_of_printabls: set[str] = set(printable)
         self.valid_id: list[int] = []
         self.clean_tok: list[tuple[int, str]] = []
-        for token_id, token_str in vocab_dict.items():
+        for token_id, token_str in self.vocab_dict.items():
             if token_str:
                 if all(is_valid in set_of_printabls
                         for is_valid in token_str):
                     self.valid_id.append(token_id)
-        for id, token in vocab_dict.items():
+        for id, token in self.vocab_dict.items():
             if token:
                 if all(valid in set_of_printabls for valid in token):
                     self.clean_tok.append((id, token))

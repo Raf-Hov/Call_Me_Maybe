@@ -7,7 +7,9 @@ from typing import Any
 class Cache:
     model: Any
     vocab: dict[int, str]
-    func_name: list[str]
+    allowfunc: list[str]
+    functions: list[dict[str, Any]]
+    param_types: dict[str, dict[str, Any]]
 
 
 class FuncCallRes(BaseModel):

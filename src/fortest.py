@@ -1,6 +1,10 @@
 # from dataclasses import dataclass
 # from pydantic.dataclasses import dataclass
 from pydantic import BaseModel, Field
+from enum import Enum
+
+class Baba(str, Enum):
+    poss = "aaaaa"
 
 
 class User:
@@ -25,5 +29,4 @@ class ServiceConfig(BaseModel):
 us1 = User("as", 1)
 us2 = User("ad", 2)
 item1 = ServiceConfig(name="apee", port=500)
-print(item1)
 
