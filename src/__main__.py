@@ -4,8 +4,8 @@ from .esiminch import ParsePyd
 
 
 def main() -> None:
-    print("aaa")
     tok = ParsePyd()
+    tok.mask_creator()
 
 
 main()

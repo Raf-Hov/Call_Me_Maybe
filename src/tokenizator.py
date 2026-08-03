@@ -46,7 +46,6 @@ class Tokenizer(ArgPars):
                 sub_str = text[i:j]
                 if sub_str in self.token_to_id:
                     my_list.append(self.token_to_id[sub_str])
-                    print(sub_str)
                     i = j
                     found = True
                     break

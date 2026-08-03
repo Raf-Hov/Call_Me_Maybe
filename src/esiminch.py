@@ -1,9 +1,8 @@
 from .tokenizator import Tokenizer
-from .pydvalider import FuncDefanition, Cache
+from .pydvalider import FuncDefanition
 from typing import Any
 from pydantic import ValidationError
 from enum import Enum
-from string import digits
 import sys
 import numpy as np
 
@@ -43,6 +42,7 @@ class ParsePyd(Tokenizer):
             if ',' in s:
                 mask_no_comma[k] = False
         nums = np.zeros(self.dummys_logits_size, dtype=bool)
+        print(nums)
         digi = set("0123456789.-, }")
         for i, d in self.clean_tok:
             if all(char in digi for char in d) or d == "null":
@@ -54,4 +54,3 @@ class ParsePyd(Tokenizer):
         for a, j in self.clean_tok:
             if any(j in ph for ph in target):
                 self.my_dict.append((a, j))
-        
