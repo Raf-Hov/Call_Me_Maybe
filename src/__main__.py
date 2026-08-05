@@ -1,11 +1,10 @@
-from typing import Any
-import string
 from .esiminch import ParsePyd
+from .constrjson import JSONconstr
 
 
 def main() -> None:
-    tok = ParsePyd()
-    tok.mask_creator()
+    tok = JSONconstr()
+    pt = ParsePyd()
 
 
 main()

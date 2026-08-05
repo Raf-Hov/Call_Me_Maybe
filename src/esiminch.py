@@ -1,5 +1,5 @@
 from .tokenizator import Tokenizer
-from .pydvalider import FuncDefanition
+from .pydvalider import FuncDefanition, Cache
 from typing import Any
 from pydantic import ValidationError
 from enum import Enum
@@ -13,44 +13,57 @@ class Phrases(str, Enum):
     PAKOX = '}'
 
 
-class ParsePyd(Tokenizer):
+class ParsePyd:
     def __init__(self) -> None:
-        super().__init__()
+        self.my_model = Tokenizer()
         self.allowfnc: list[str] = []
-        par_type: dict[str, dict[str, Any]] = {}
-        for func in self.funtions_list:
+        self.par_type: dict[str, dict[str, Any]] = {}
+        for func in self.my_model.funtions_list:
             try:
                 funct = FuncDefanition(**func)
                 self.allowfnc.append(funct.name)
                 par = func.get("parameters", {})
-                par_type[funct.name] = {}
+                self.par_type[funct.name] = {}
                 for p, s in par.items():
-                    par_type[funct.name][p] = s.get("type")
+                    self.par_type[funct.name][p] = s.get("type")
             except ValidationError as e:
-                print("Validation ERROR: input data is invalid or incomplete.",
-                      file=sys.stderr)
+                print(
+                    "Validation ERROR: input data is invalid or incomplete.",
+                    file=sys.stderr)
                 print(e)
                 sys.exit(1)
+        self.mask_creator()
 
     def mask_creator(self) -> None:
-        dummy_ids = self.encode("dummy")
+        dummy_ids = self.my_model.encode("dummy")
         self.dummys_logits_size = len(
-            self.model.get_logits_from_input_ids(dummy_ids))
+            self.my_model.model.get_logits_from_input_ids(dummy_ids))
         mask = np.zeros(self.dummys_logits_size, dtype=bool)
         mask_no_comma = mask.copy()
-        for k, s in self.clean_tok:
+        for k, s in self.my_model.clean_tok:
             if ',' in s:
                 mask_no_comma[k] = False
         nums = np.zeros(self.dummys_logits_size, dtype=bool)
-        print(nums)
         digi = set("0123456789.-, }")
-        for i, d in self.clean_tok:
+        for i, d in self.my_model.clean_tok:
             if all(char in digi for char in d) or d == "null":
                 nums[i] = True
         target = self.allowfnc
         for c in ['{"name":"', '","parameters":{', '}']:
             target.append(c)
-        self.my_dict: list[tuple[int, str]] = []
-        for a, j in self.clean_tok:
+        my_dict: list[tuple[int, str]] = []
+        for a, j in self.my_model.clean_tok:
             if any(j in ph for ph in target):
-                self.my_dict.append((a, j))
+                my_dict.append((a, j))
+        self.cache = Cache(
+            model=self.my_model,
+            vocab=self.my_model.vocab_dict,
+            allowfunc=self.allowfnc,
+            functions=self.my_model.funtions_list,
+            param_types=self.par_type,
+            mask=mask,
+            numbers_mask=nums,
+            no_comma=mask_no_comma,
+            mini_dict=my_dict,
+            clean_dict=self.my_model.clean_tok
+        )

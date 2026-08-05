@@ -1,10 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pydantic.dataclasses import dataclass
 from typing import Any
 import numpy as np
 
 
-@dataclass
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class Cache:
     model: Any
     vocab: dict[int, str]
