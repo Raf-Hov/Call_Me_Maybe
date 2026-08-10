@@ -6,16 +6,16 @@ from string import printable
 
 class Tokenizer(ArgPars):
     def __init__(self) -> None:
-        args = self.parse_argum()
+        self.args = self.parse_argum()
         self.funtions_list: list[dict[str, Any]] = self.load_json_file(
-                args.functions_definition
+                self.args.functions_definition
                 )
         self.prompt_list: list[dict[str, Any]] = self.load_json_file(
-                args.input
+                self.args.input
                 )
-        self.model = Small_LLM_Model()
+        self.llm = Small_LLM_Model()
         vocab: dict[str, int] = self.load_json_file(
-            self.model.get_path_to_vocab_file())
+            self.llm.get_path_to_vocab_file())
         self.vocab_dict: dict[int, str] = {
                 v: k.replace('Ġ', ' ') for k, v in vocab.items()}
         set_of_printabls: set[str] = set(printable)

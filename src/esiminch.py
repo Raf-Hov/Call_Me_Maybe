@@ -18,10 +18,12 @@ class ParsePyd:
         self.my_model = Tokenizer()
         self.allowfnc: list[str] = []
         self.par_type: dict[str, dict[str, Any]] = {}
+        self.func_par: dict[str, int] = {}
         for func in self.my_model.funtions_list:
             try:
                 funct = FuncDefanition(**func)
                 self.allowfnc.append(funct.name)
+                self.func_par[funct.name] = len(funct.parameters)
                 par = func.get("parameters", {})
                 self.par_type[funct.name] = {}
                 for p, s in par.items():
@@ -37,7 +39,7 @@ class ParsePyd:
     def mask_creator(self) -> None:
         dummy_ids = self.my_model.encode("dummy")
         self.dummys_logits_size = len(
-            self.my_model.model.get_logits_from_input_ids(dummy_ids))
+            self.my_model.llm.get_logits_from_input_ids(dummy_ids))
         mask = np.zeros(self.dummys_logits_size, dtype=bool)
         mask_no_comma = mask.copy()
         for k, s in self.my_model.clean_tok:
@@ -59,6 +61,7 @@ class ParsePyd:
             model=self.my_model,
             vocab=self.my_model.vocab_dict,
             allowfunc=self.allowfnc,
+            func_params=self.func_par,
             functions=self.my_model.funtions_list,
             param_types=self.par_type,
             mask=mask,
