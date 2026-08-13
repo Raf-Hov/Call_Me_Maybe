@@ -39,7 +39,6 @@ def main() -> None:
                             extracted_dict["parameters"][key] = float(val)
                     elif isinstance(val, str):
                         extracted_dict["parameters"][key] = val.strip()
-
             final_data = {
                 "prompt": prompt_txt,
                 "name": extracted_dict["name"],

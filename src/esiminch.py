@@ -2,15 +2,8 @@ from .tokenizator import Tokenizer
 from .pydvalider import FuncDefanition, Cache
 from typing import Any
 from pydantic import ValidationError
-from enum import Enum
 import sys
 import numpy as np
-
-
-class Phrases(str, Enum):
-    NAME = '{"name":"'
-    PARAM = '","parameters":{'
-    PAKOX = '}'
 
 
 class ParsePyd:
@@ -41,6 +34,7 @@ class ParsePyd:
         self.dummys_logits_size = len(
             self.my_model.llm.get_logits_from_input_ids(dummy_ids))
         mask = np.zeros(self.dummys_logits_size, dtype=bool)
+        mask[self.my_model.valid_id] = True
         mask_no_comma = mask.copy()
         for k, s in self.my_model.clean_tok:
             if ',' in s:
@@ -50,9 +44,7 @@ class ParsePyd:
         for i, d in self.my_model.clean_tok:
             if all(char in digi for char in d) or d == "null":
                 nums[i] = True
-        target = self.allowfnc
-        for c in ['{"name":"', '","parameters":{', '}']:
-            target.append(c)
+        target = self.allowfnc + ['{"name":"', '","parameters":{', '}']
         my_dict: list[tuple[int, str]] = []
         for a, j in self.my_model.clean_tok:
             if any(j in ph for ph in target):

@@ -9,13 +9,11 @@ class JSONconstr:
     def __init__(self):
         self.prefix = '{"name":"'
         self.bridge = ',"parameters":{'
-        self.current_str = ""
 
     def get_allowed_chars(
             self, current_str: str, allowed_names: list[str]) -> list[str]:
         if len(current_str) < len(self.prefix):
             return [self.prefix[len(current_str):]]
-
         after_prefix = current_str[len(self.prefix):]
         if '"' not in after_prefix:
             return [name[len(after_prefix):] + '"'
@@ -24,7 +22,6 @@ class JSONconstr:
         target = self.prefix + func_name + '","parameters":{'
         if len(current_str) < len(target):
             return [target[len(current_str):]]
-
         return list(string.printable)
 
     def generate_constrained_json(
@@ -60,6 +57,10 @@ class JSONconstr:
         while (
             not current_str.replace(" ", "").replace("\n", "").endswith('}}')
                 and len(input_ids) < len(prompt) + max_tokens):
+            if (current_str.endswith('}}')
+                or (current_str.endswith('}')
+                    and current_str.count('{') == current_str.count('}'))):
+                break
             if prefix in current_str and '","parameters":{' not in current_str:
                 after_prefix = current_str.split(prefix)[1]
                 possible_names = [
@@ -125,23 +126,23 @@ class JSONconstr:
                     1] if '"parameters"' in current_str else ""
                 if params_str:
                     in_string = False
-                    last_structural_colon = -1
-                    last_structural_comma = -1
-                    last_structural_brace = -1
+                    _last_colon = -1
+                    _last_comma = -1
+                    _last_brace = -1
                     for i, char in enumerate(params_str):
                         if char == '"':
                             if i == 0 or params_str[i-1] != '\\':
                                 in_string = not in_string
                         elif not in_string:
                             if char == ':':
-                                last_structural_colon = i
+                                _last_colon = i
                             elif char == ',':
-                                last_structural_comma = i
+                                _last_comma = i
                             elif char == '}':
-                                last_structural_brace = i
+                                _last_brace = i
                     is_inside_value = (
-                        last_structural_colon > last_structural_comma
-                        and last_structural_colon > last_structural_brace
+                        _last_colon > _last_comma
+                        and _last_colon > _last_brace
                     )
                     active_key = ""
                     if is_inside_value:
@@ -155,7 +156,7 @@ class JSONconstr:
                     if is_inside_value and expected_type == "number":
                         mask = cache.numbers_mask.copy()
                         if param_count == target_count:
-                            for i, s in cache.clean_dict_items:
+                            for i, s in cache.clean_dict:
                                 if ',' in s:
                                     mask[i] = False
                     elif is_inside_value and in_string:

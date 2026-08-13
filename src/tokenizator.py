@@ -13,7 +13,7 @@ class Tokenizer(ArgPars):
         self.prompt_list: list[dict[str, Any]] = self.load_json_file(
                 self.args.input
                 )
-        self.llm = Small_LLM_Model()
+        self.llm = Small_LLM_Model(model_name=self.args.model)
         vocab: dict[str, int] = self.load_json_file(
             self.llm.get_path_to_vocab_file())
         self.vocab_dict: dict[int, str] = {
@@ -21,28 +21,30 @@ class Tokenizer(ArgPars):
         set_of_printabls: set[str] = set(printable)
         self.valid_id: list[int] = []
         self.clean_tok: list[tuple[int, str]] = []
-        for token_id, token_str in self.vocab_dict.items():
-            if token_str:
-                if all(is_valid in set_of_printabls
-                        for is_valid in token_str):
-                    self.valid_id.append(token_id)
-        for id, token in self.vocab_dict.items():
-            if token:
-                if all(valid in set_of_printabls for valid in token):
-                    self.clean_tok.append((id, token))
         self.token_to_id: dict[str, int] = {}
         self.id_to_token: dict[int, str] = {}
         for token, id in vocab.items():
             self.token_to_id[token] = id
             self.id_to_token[id] = token
+        for token_id, token_str in self.vocab_dict.items():
+            if token_str and all(is_valid in set_of_printabls
+                                 for is_valid in token_str):
+                self.valid_id.append(token_id)
+        for id, token in self.vocab_dict.items():
+            if token and all(valid in set_of_printabls for valid in token):
+                self.clean_tok.append((id, token))
+        self.max_token_len = max((len(k) for k in self.token_to_id.keys()),
+                                 default=1)
 
     def encode(self, text: str) -> list[int]:
         text = text.replace(" ", "Ġ")
         my_list: list[int] = []
         i = 0
-        while i < len(text):
+        n = len(text)
+        max_len = self.max_token_len
+        while i < n:
             found = False
-            for j in range(len(text), i, -1):
+            for j in range(min(n, i + max_len), i, -1):
                 sub_str = text[i:j]
                 if sub_str in self.token_to_id:
                     my_list.append(self.token_to_id[sub_str])
