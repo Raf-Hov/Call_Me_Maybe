@@ -30,16 +30,16 @@ class ParsePyd:
         self.mask_creator()
 
     def mask_creator(self) -> None:
-        dummy_ids = self.my_model.encode("dummy")
-        self.dummys_logits_size = len(
+        dummy_ids = self.my_model.encode("axper")
+        dummys_logits_size = len(
             self.my_model.llm.get_logits_from_input_ids(dummy_ids))
-        mask = np.zeros(self.dummys_logits_size, dtype=bool)
+        mask = np.zeros(dummys_logits_size, dtype=bool)
         mask[self.my_model.valid_id] = True
         mask_no_comma = mask.copy()
         for k, s in self.my_model.clean_tok:
             if ',' in s:
                 mask_no_comma[k] = False
-        nums = np.zeros(self.dummys_logits_size, dtype=bool)
+        nums = np.zeros(dummys_logits_size, dtype=bool)
         digi = set("0123456789.-, }")
         for i, d in self.my_model.clean_tok:
             if all(char in digi for char in d) or d == "null":
@@ -51,6 +51,7 @@ class ParsePyd:
                 my_dict.append((a, j))
         self.cache = Cache(
             model=self.my_model,
+            logits_size=dummys_logits_size,
             vocab=self.my_model.vocab_dict,
             allowfunc=self.allowfnc,
             func_params=self.func_par,

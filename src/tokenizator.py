@@ -18,7 +18,7 @@ class Tokenizer(ArgPars):
             self.llm.get_path_to_vocab_file())
         self.vocab_dict: dict[int, str] = {
                 v: k.replace('Ġ', ' ') for k, v in vocab.items()}
-        set_of_printabls: set[str] = set(printable)
+        self.set_of_printabls: set[str] = set(printable)
         self.valid_id: list[int] = []
         self.clean_tok: list[tuple[int, str]] = []
         self.token_to_id: dict[str, int] = {}
@@ -27,11 +27,12 @@ class Tokenizer(ArgPars):
             self.token_to_id[token] = id
             self.id_to_token[id] = token
         for token_id, token_str in self.vocab_dict.items():
-            if token_str and all(is_valid in set_of_printabls
+            if token_str and all(is_valid in self.set_of_printabls
                                  for is_valid in token_str):
                 self.valid_id.append(token_id)
         for id, token in self.vocab_dict.items():
-            if token and all(valid in set_of_printabls for valid in token):
+            if token and all(
+                  valid in self.set_of_printabls for valid in token):
                 self.clean_tok.append((id, token))
         self.max_token_len = max((len(k) for k in self.token_to_id.keys()),
                                  default=1)
