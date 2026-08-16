@@ -3,26 +3,108 @@ import string
 import json
 import numpy as np
 import re
+import sys
+
+
+class _NameTrieNode:
+    __slots__ = ("children", "is_end")
+
+    def __init__(self) -> None:
+        self.children: dict[str, "_NameTrieNode"] = {}
+        self.is_end = False
+
+
+class NameTrie:
+    """Prefix-tree over the allowed function names.
+
+    `_teleport`/`_allow_chars` used to scan the whole `allowfunc` list with
+    `.startswith()` on every generated token. With a handful of functions
+    that's cheap, but it doesn't scale, and it's redundant work repeated at
+    every step. The trie is built once (per JSONconstr instance) and every
+    lookup afterwards costs O(len(prefix)) instead of O(num_functions).
+    """
+
+    def __init__(self, names: list[str]) -> None:
+        self.root = _NameTrieNode()
+        for name in names:
+            node = self.root
+            for ch in name:
+                node = node.children.setdefault(ch, _NameTrieNode())
+            node.is_end = True
+
+    def _node_for_prefix(self, prefix: str) -> "_NameTrieNode | None":
+        node = self.root
+        for ch in prefix:
+            if ch not in node.children:
+                return None
+            node = node.children[ch]
+        return node
+
+    def names_with_prefix(self, prefix: str) -> list[str]:
+        node = self._node_for_prefix(prefix)
+        if node is None:
+            return []
+        results: list[str] = []
+
+        def _collect(n: "_NameTrieNode", built: str) -> None:
+            if n.is_end:
+                results.append(built)
+            for ch, child in n.children.items():
+                _collect(child, built + ch)
+
+        _collect(node, prefix)
+        return results
+
+    def unique_completion(self, prefix: str) -> "str | None":
+        """Return the one function name starting with `prefix` if it's the
+        only candidate, otherwise None."""
+        matches = self.names_with_prefix(prefix)
+        return matches[0] if len(matches) == 1 else None
 
 
 class JSONconstr:
     def __init__(self, cache: Any) -> None:
         self.cache = cache
         self.pref = '{"name":"'
-        self.bridge = '","parameters":{'
-        
-    def _allow_chars(self, curr_str: str, allow_names: list[str]) -> list[str]:
+        # Used by _allow_chars, where the name string hasn't been closed
+        # with a quote yet: pref + name + name_prefix_bridge reconstructs
+        # "{"name":"foo","parameters":{".
+        self.name_prefix_bridge = '","parameters":{'
+        # Used everywhere in generate_json, where current_str already ends
+        # with the name's closing quote (added either by _teleport or by
+        # normal token-by-token generation) - so we only need to add the
+        # comma onward, NOT another quote.
+        self.params_bridge = ',"parameters":{'
+        self.name_trie = NameTrie(self.cache.allowfunc)
+
+    def _allow_chars(self, curr_str: str) -> list[str]:
         if len(curr_str) < len(self.pref):
             return [self.pref[len(curr_str):]]
         teil = curr_str[len(self.pref):]
         if '"' not in teil:
             return [n[len(teil):] + '"'
-                    for n in allow_names if n.startswith(teil)]
+                    for n in self.name_trie.names_with_prefix(teil)]
         funct = teil.split('"')[0]
-        torg = self.pref + funct + self.bridge
+        torg = self.pref + funct + self.name_prefix_bridge
         if len(curr_str) < len(torg):
             return [torg[len(curr_str):]]
         return list(string.printable)
+
+    def _teleport(self) -> bool:
+        """Fast path for phase 2 (typing the function name): once the
+        partial name unambiguously identifies exactly one allowed
+        function, jump straight to the end of its name instead of
+        generating it one token at a time."""
+        if (self.pref in self.current_str
+                and self.params_bridge not in self.current_str):
+            after_prefix = self.current_str.split(self.pref)[1]
+            full_name = self.name_trie.unique_completion(after_prefix)
+            if full_name is not None and full_name != after_prefix:
+                reminder = full_name[len(after_prefix):] + '"'
+                self.current_str += reminder
+                self.input_ids.extend(self.cache.model.encode(reminder))
+                return True
+        return False
 
     def generate_json(self, prompt_text: str) -> str:
         optimized_schemas = []
@@ -57,23 +139,14 @@ class JSONconstr:
             not
             self.current_str.replace(" ", "").replace("\n", "").endswith('}}')
                 and len(self.input_ids) < _toekn_count + max_tokens):
-            if (self.pref in self.current_str
-                    and '","parameters":{' not in self.current_str):
-                after_prefix = self.current_str.split(self.pref)[1]
-                possible_names = [
-                    n
-                    for n in self.cache.allowfunc if n.startswith(after_prefix)]
-                if (len(possible_names) == 1
-                        and possible_names[0] != after_prefix):
-                    remainder = possible_names[0][len(after_prefix):] + '"'
-                    self.current_str += remainder
-                    self.input_ids.extend(self.cache.model.encode(remainder))
-                    continue
+            if self._teleport():
+                continue
             if (self.current_str.endswith('"') and not self.bridge_dnel
                 and self.pref in self.current_str
                     and len(self.current_str) > len(self.pref)):
-                self.current_str += self.bridge
-                self.input_ids.extend(self.cache.model.encode(self.bridge))
+                self.current_str += self.params_bridge
+                self.input_ids.extend(
+                    self.cache.model.encode(self.params_bridge))
                 self.bridge_dnel = True
                 f_name = self.current_str.split(self.pref)[1].split('"')[0]
                 if self.cache.func_params.get(f_name, 99) == 0:
@@ -87,7 +160,8 @@ class JSONconstr:
                     tiny_schema = json.dumps(
                         [{
                             "name": active_schema["name"],
-                            "description": active_schema.get("description", ""),
+                            "description": active_schema.get(
+                                "description", ""),
                             "parameters": active_schema.get("parameters", {})
                         }],
                         separators=(',', ':')
@@ -106,12 +180,9 @@ class JSONconstr:
                         f"User: {prompt_text}\n"
                         f"Tool Call: {self.current_str}"
                     )
-
                     self.input_ids = self.cache.model.encode(tiny_prompt)
-                else:
-                    self.input_ids.extend(self.cache.model.encode(self.bridge))
                 continue
-            rules = self._allow_chars(self.current_str, self.cache.allowfunc)
+            rules = self._allow_chars(self.current_str)
             logits = np.array(
                 self.cache.model.llm.get_logits_from_input_ids(self.input_ids))
             mask = np.zeros(self.cache.logits_size, dtype=bool)
@@ -174,18 +245,18 @@ class JSONconstr:
                         clean_str = self.current_str.strip()
                         if clean_str.endswith('"'):
                             self.current_str = clean_str + "}}"
-                            print(f"\rGenerating: {self.current_str}", end="",
-                                  flush=True)
+                            print(f"\rGenerating: {self.current_str}",
+                                  end="", flush=True)
                             break
                         elif clean_str.endswith('}'):
                             self.current_str = clean_str + "}"
-                            print(f"\rGenerating: {self.current_str}", end="",
-                                  flush=True)
+                            print(f"\rGenerating: {self.current_str}",
+                                  end="", flush=True)
                             break
                         elif clean_str.endswith(','):
                             self.current_str = clean_str[:-1] + "}}"
-                            print(f"\rGenerating: {self.current_str}", end="",
-                                  flush=True)
+                            print(f"\rGenerating: {self.current_str}",
+                                  end="", flush=True)
                             break
                         else:
                             mask = self.cache.no_comma.copy()
@@ -205,6 +276,15 @@ class JSONconstr:
                 for i, s in self.cache.mini_dict:
                     if any(rule.startswith(s) for rule in rules):
                         mask[i] = True
+
+            if not mask.any():
+                print(
+                    f"\nWarning: no valid continuation for current state, "
+                    f"stopping early. current_str={self.current_str!r}",
+                    file=sys.stderr,
+                )
+                break
+
             logits[~mask] = -np.inf
             best_id = int(np.argmax(logits))
             self.current_str += self.cache.vocab.get(best_id, "")
@@ -212,12 +292,12 @@ class JSONconstr:
             if (self.current_str.endswith('"')
                 and not self.bridge_dnel
                     and self.pref in self.current_str):
-                bridge = ',"parameters":{'
-                self.current_str += bridge
-                self.input_ids.extend(self.cache.model.encode(bridge))
+                self.current_str += self.params_bridge
+                self.input_ids.extend(
+                    self.cache.model.encode(self.params_bridge))
                 self.bridge_dnel = True
                 continue
             else:
                 print(f"\rGenerating: {self.current_str}", end="", flush=True)
-        print()
+            print()
         return self.current_str

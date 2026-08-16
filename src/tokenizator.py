@@ -4,6 +4,49 @@ from typing import Any
 from string import printable
 
 
+class _TrieNode:
+    __slots__ = ("children", "token_id")
+
+    def __init__(self) -> None:
+        self.children: dict[str, "_TrieNode"] = {}
+        self.token_id: int | None = None
+
+
+class VocabTrie:
+    """Prefix-tree over the vocabulary used for greedy longest-match
+    tokenization.
+
+    The original implementation tried substrings of decreasing length
+    (`text[i:j]` for j from i+max_token_len down to i+1) and did a dict
+    lookup for each one - O(max_token_len) slices + hashes per start
+    position. A trie lets us walk the text once, character by character,
+    and remember the deepest node that terminates a real token, which is
+    the same "longest match" result in O(len(text)) total instead of
+    O(len(text) * max_token_len).
+    """
+
+    def __init__(self, token_to_id: dict[str, int]) -> None:
+        self.root = _TrieNode()
+        for token, token_id in token_to_id.items():
+            node = self.root
+            for ch in token:
+                node = node.children.setdefault(ch, _TrieNode())
+            node.token_id = token_id
+
+    def longest_match(self, text: str, start: int) -> "tuple[int, int] | None":
+        """Return (end_index, token_id) for the longest vocab token that
+        matches text starting at `start`, or None if no token matches."""
+        node = self.root
+        i = start
+        best: "tuple[int, int] | None" = None
+        while i < len(text) and text[i] in node.children:
+            node = node.children[text[i]]
+            i += 1
+            if node.token_id is not None:
+                best = (i, node.token_id)
+        return best
+
+
 class Tokenizer(ArgPars):
     def __init__(self) -> None:
         self.args = self.parse_argum()
@@ -36,23 +79,20 @@ class Tokenizer(ArgPars):
                 self.clean_tok.append((id, token))
         self.max_token_len = max((len(k) for k in self.token_to_id.keys()),
                                  default=1)
+        self.trie = VocabTrie(self.token_to_id)
 
     def encode(self, text: str) -> list[int]:
         text = text.replace(" ", "Ġ")
         my_list: list[int] = []
         i = 0
         n = len(text)
-        max_len = self.max_token_len
         while i < n:
-            found = False
-            for j in range(min(n, i + max_len), i, -1):
-                sub_str = text[i:j]
-                if sub_str in self.token_to_id:
-                    my_list.append(self.token_to_id[sub_str])
-                    i = j
-                    found = True
-                    break
-            if not found:
+            match = self.trie.longest_match(text, i)
+            if match is not None:
+                end, token_id = match
+                my_list.append(token_id)
+                i = end
+            else:
                 i += 1
         return my_list
 

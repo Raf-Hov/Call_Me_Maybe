@@ -54,5 +54,7 @@ class ArgPars:
         except PermissionError:
             print(f"Permission denied in this file {file_path}",
                   file=sys.stderr)
+            sys.exit(1)
         except Exception as e:
             print(f"detected ERROR: \n{e}", file=sys.stderr)
+            sys.exit(1)
