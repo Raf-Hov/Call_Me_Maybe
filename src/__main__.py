@@ -14,7 +14,6 @@ def main() -> None:
     parse = ParsePyd()
     jsn = JSONconstr(parse.cache)
     final_list: list[dict[str, Any]] = []
-
     for entry in parse.my_model.prompt_list:
         prompt_text = entry.get("prompt") if isinstance(entry, dict) else entry
         if not prompt_text:
@@ -43,9 +42,7 @@ def main() -> None:
                 file=sys.stderr,
             )
             continue
-
         final_list.append(result.model_dump())
-
     output_path = Path(parse.my_model.args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:

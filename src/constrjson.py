@@ -15,15 +15,6 @@ class _NameTrieNode:
 
 
 class NameTrie:
-    """Prefix-tree over the allowed function names.
-
-    `_teleport`/`_allow_chars` used to scan the whole `allowfunc` list with
-    `.startswith()` on every generated token. With a handful of functions
-    that's cheap, but it doesn't scale, and it's redundant work repeated at
-    every step. The trie is built once (per JSONconstr instance) and every
-    lookup afterwards costs O(len(prefix)) instead of O(num_functions).
-    """
-
     def __init__(self, names: list[str]) -> None:
         self.root = _NameTrieNode()
         for name in names:
@@ -56,8 +47,6 @@ class NameTrie:
         return results
 
     def unique_completion(self, prefix: str) -> "str | None":
-        """Return the one function name starting with `prefix` if it's the
-        only candidate, otherwise None."""
         matches = self.names_with_prefix(prefix)
         return matches[0] if len(matches) == 1 else None
 
@@ -66,14 +55,7 @@ class JSONconstr:
     def __init__(self, cache: Any) -> None:
         self.cache = cache
         self.pref = '{"name":"'
-        # Used by _allow_chars, where the name string hasn't been closed
-        # with a quote yet: pref + name + name_prefix_bridge reconstructs
-        # "{"name":"foo","parameters":{".
         self.name_prefix_bridge = '","parameters":{'
-        # Used everywhere in generate_json, where current_str already ends
-        # with the name's closing quote (added either by _teleport or by
-        # normal token-by-token generation) - so we only need to add the
-        # comma onward, NOT another quote.
         self.params_bridge = ',"parameters":{'
         self.name_trie = NameTrie(self.cache.allowfunc)
 
@@ -91,10 +73,6 @@ class JSONconstr:
         return list(string.printable)
 
     def _teleport(self) -> bool:
-        """Fast path for phase 2 (typing the function name): once the
-        partial name unambiguously identifies exactly one allowed
-        function, jump straight to the end of its name instead of
-        generating it one token at a time."""
         if (self.pref in self.current_str
                 and self.params_bridge not in self.current_str):
             after_prefix = self.current_str.split(self.pref)[1]
@@ -284,7 +262,6 @@ class JSONconstr:
                     file=sys.stderr,
                 )
                 break
-
             logits[~mask] = -np.inf
             best_id = int(np.argmax(logits))
             self.current_str += self.cache.vocab.get(best_id, "")
