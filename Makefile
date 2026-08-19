@@ -9,7 +9,7 @@ install:
 	py -m poetry install
 
 run:
-	$(PYTHON) $(MAIN)
+	uv run python3 -m src
 
 debug:
 	$(PYTHON) -m pdb $(MAIN)

@@ -13,18 +13,6 @@ class _TrieNode:
 
 
 class VocabTrie:
-    """Prefix-tree over the vocabulary used for greedy longest-match
-    tokenization.
-
-    The original implementation tried substrings of decreasing length
-    (`text[i:j]` for j from i+max_token_len down to i+1) and did a dict
-    lookup for each one - O(max_token_len) slices + hashes per start
-    position. A trie lets us walk the text once, character by character,
-    and remember the deepest node that terminates a real token, which is
-    the same "longest match" result in O(len(text)) total instead of
-    O(len(text) * max_token_len).
-    """
-
     def __init__(self, token_to_id: dict[str, int]) -> None:
         self.root = _TrieNode()
         for token, token_id in token_to_id.items():
@@ -34,8 +22,6 @@ class VocabTrie:
             node.token_id = token_id
 
     def longest_match(self, text: str, start: int) -> "tuple[int, int] | None":
-        """Return (end_index, token_id) for the longest vocab token that
-        matches text starting at `start`, or None if no token matches."""
         node = self.root
         i = start
         best: "tuple[int, int] | None" = None

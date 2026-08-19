@@ -43,9 +43,7 @@ def main() -> None:
                 file=sys.stderr,
             )
             continue
-
         final_list.append(result.model_dump())
-
     output_path = Path(parse.my_model.args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
